@@ -1,0 +1,100 @@
+---
+title: "Machine Learning Project"
+author: "Hugo Cam"
+date: "Tuesday, December 16, 2014"
+output: html_document
+---
+
+## Introduction
+
+The goal is to predict the manner in which persons did the exercise. 
+This is the "classe" variable in the training set. I will use any of the other variables to predict with.
+We will also use the prediction model to predict 20 different test cases.
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+Based on the data recorded from several people using Activity Monitors, I will try to construct a macine learning algorithm to predict future outcomes on the test data.
+I am using Random Forest Modeling, and got over 99% accuracy on my training set of 70% of the total data. 
+
+
+## Loading and cleaning Data
+
+After downloaded the data files, I will review the data and cleanning it.
+
+```{r}
+library(caret)
+testing <- read.csv("pml-testing.csv", na.strings = c("NA", ""))
+training <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+dim(testing); dim(training)
+head(training)
+```
+
+
+Removing columns X, username, time stamps fields and new_window field. Columns 1 to 6.
+
+```{r}
+removeColumns <- as.integer(c(1, 2, 3, 4, 5, 6))
+training <- training[, -removeColumns]
+testing <- testing[, -removeColumns]
+
+```
+
+Eliminating columns with missing values
+```{r}
+numberNAs <- apply(training, 2, function(x) { sum(is.na(x)) })
+training2 <- training[, which(numberNAs == 0)]
+dim(training2)
+```
+
+## Building data sets for training and testing data sets.
+
+Using 70% for training and 30% for testing.  None generated for testing since that set is already provided.
+
+```{r}
+inTrain <- createDataPartition(y = training2$classe, p = 0.7, list = FALSE)
+trainingSet <- training2[inTrain, ]
+testingSet  <- training2[-inTrain, ]
+```
+
+## Fitting the model and Predict
+
+Training, fit the model, outcome is Classe, predicted with all remaining variables
+method rain forest, the data is trainingSet  
+
+Parameter tuning, cross-validation and simple bootstrap resampling is used for line 3 in the algorithm above. The function trainControl can be used to specifiy the type of resampling: cross-validation
+
+```{r}
+trControl = trainControl(method = "cv", number = 4)
+## fit the model
+## install.packages("e1071")
+modelFit <- train(trainingSet$classe ~ ., data = trainingSet, method = "rf", trControl = trControl)
+modelFit
+```
+
+Calculation the errors using the testing Set. It is the number of valid prediction divide by total testing set.
+
+```{r}
+predicted <- predict(modelFit, testingSet)
+SampleError <- sum(predicted == testingSet$classe)/nrow(testingSet)
+SampleError
+```
+
+Generating data for the prediction vector for the Assigment Submission
+```{r}
+answers <- predict(modelFit, testing)
+answers
+```
+
+I will use the following function to create the files required to submit the answers
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(answers)
+```
